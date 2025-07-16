@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Control de Ventas</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    nav {
+      background: #333;
+      color: white;
+      padding: 10px;
+    }
+
+    nav a {
+      color: white;
+      margin-right: 20px;
+      text-decoration: none;
+      font-weight: bold;
+    }
+input.entregado {
+  background-color: red !important;
+  color: white;
+}
+
+.cliente-entregado {
+  color: BLUE;
+}
+    .contenido {
+      padding: 20px;
+    }
+
+    .cliente-reporte {
+      background: LightPink;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .cliente-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .productos-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .producto {
+      display: grid;
+      grid-template-columns: 100px 1fr 100px auto;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-weight: bold;
+    }
+
+    .producto.pagado {
+      background-color: #d4edda;
+    }
+
+    .controles-tarjeta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .controles-tarjeta button {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .controles-tarjeta input[type="date"] {
+      padding: 6px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    .tarjeta-pagada {
+      background-color: #00FF7F !important;
+      border: 2px solid #28a745;
+    }
+
+    .mostrar-ocultas button {
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="index.html">🏠 Ventas</a>
+    <a href="control.html">📋 Control</a>
+    <a href="ocultas.html">🕵️ Tarjetas Ocultas</a>
+    <a href="resumen.html">📊 Resumen</a>
+    
+  </nav>
+
+  <div class="contenido">
+    <div id="mostrar-tarjetas-ocultas" class="mostrar-ocultas"></div>
+<div style="margin-bottom: 20px;">
+  <label><strong>Filtrar por cliente:</strong></label>
+  <select id="filtroCliente" onchange="mostrarVentas()">
+    <option value="">-- Todos los clientes --</option>
+  </select>
+</div>
+
+    <div id="reporte"></div>
+  </div>
+
+  <script>
+    let ventas = JSON.parse(localStorage.getItem('ventas') || '[]');
+    let estadoClientesControl = JSON.parse(localStorage.getItem('estadoClientesControl') || '{}');
+
+    function guardarDatos() {
+      localStorage.setItem('ventas', JSON.stringify(ventas));
+      localStorage.setItem('estadoClientesControl', JSON.stringify(estadoClientesControl));
+    }
+
+    function guardarPagoCliente(cliente, monto) {
+      const pagos = JSON.parse(localStorage.getItem('pagosPorCliente') || '{}');
+      if (!pagos[cliente]) pagos[cliente] = [];
+      pagos[cliente].push({
+        monto,
+        fecha: new Date().toISOString().split('T')[0]
+      });
+      localStorage.setItem('pagosPorCliente', JSON.stringify(pagos));
+    }
+function cargarClientesEnFiltro() {
+  const select = document.getElementById("filtroCliente");
+  const clientesUnicos = [...new Set(ventas.map(v => v.cliente))].sort();
+
+  select.innerHTML = `<option value="">-- Todos los clientes --</option>`;
+  clientesUnicos.forEach(c => {
+    const option = document.createElement("option");
+    option.value = c;
+    option.textContent = c;
+    select.appendChild(option);
+  });
+}
+
+    function mostrarVentas() {
+      const reporte = document.getElementById('reporte');
+      const contenedorMostrar = document.getElementById('mostrar-tarjetas-ocultas');
+      reporte.innerHTML = '';
+  const filtroCliente = document.getElementById("filtroCliente")?.value;
+      const agrupado = {};
+      ventas.forEach(v => {
+        const fecha = v.fecha.split('T')[0];
+        if (!agrupado[fecha]) agrupado[fecha] = {};
+        if (!agrupado[fecha][v.cliente]) agrupado[fecha][v.cliente] = [];
+        agrupado[fecha][v.cliente].push(v);
+      });
+
+     for (const fecha in agrupado) {
+  const clientesFiltrados = Object.keys(agrupado[fecha]).filter(cliente => {
+    return !filtroCliente || cliente === filtroCliente;
+  });
+
+  if (clientesFiltrados.length === 0) continue;
+
+  const tarjetaFecha = document.createElement('div');
+  const titulo = document.createElement('h2');
+  titulo.textContent = `VENTAS DEL ${fecha}`;
+  tarjetaFecha.appendChild(titulo);
+
+  for (const cliente of clientesFiltrados) {
+
+          const claveOculta = `control_${cliente}_${fecha}`;
+          if (estadoClientesControl[claveOculta]?.oculto) {
+            continue;
+          }
+
+          const tarjeta = document.createElement('div');
+          tarjeta.className = 'cliente-reporte';
+
+          const cabecera = document.createElement('div');
+          cabecera.className = 'cliente-header';
+          cabecera.innerHTML = `<div class="cliente-info">🧍 ${cliente}</div><div class="fecha-venta">📅 ${fecha}</div>`;
+          tarjeta.appendChild(cabecera);
+
+          const productos = document.createElement('div');
+          productos.className = 'productos-container';
+          let totalCliente = 0;
+
+          agrupado[fecha][cliente].forEach(v => {
+            const fila = document.createElement('div');
+            fila.className = 'producto';
+            if (v.pagado) fila.classList.add('pagado');
+            fila.innerHTML = `
+              <span>${v.codigo}</span>
+              <span style="padding-left: 10px;">${v.producto}</span>
+              <span style="padding-left: 10px;">$${v.valor}</span>
+            `;
+            const btnPagado = document.createElement('button');
+            btnPagado.textContent = v.pagado ? 'Pagado' : 'Pagado';
+            btnPagado.style.backgroundColor = v.pagado ? '#28a745' : '#007bff';
+            btnPagado.style.color = 'white';
+            btnPagado.style.border = 'none';
+            btnPagado.style.padding = '5px 10px';
+            btnPagado.style.borderRadius = '5px';
+            btnPagado.style.cursor = 'pointer';
+            btnPagado.onclick = () => {
+              v.pagado = !v.pagado;
+              guardarDatos();
+              mostrarVentas();
+            };
+            fila.appendChild(btnPagado);
+            productos.appendChild(fila);
+            totalCliente += v.valor;
+          });
+
+          tarjeta.appendChild(productos);
+
+          const totalDiv = document.createElement('div');
+          totalDiv.innerHTML = `<strong>Total Cliente: $${totalCliente.toLocaleString()}</strong>`;
+          tarjeta.appendChild(totalDiv);
+
+          const controles = document.createElement('div');
+          controles.className = 'controles-tarjeta';
+
+          const entregaLabel = document.createElement('label');
+          entregaLabel.textContent = '📦 Fecha Entrega:';
+          const inputEntrega = document.createElement('input');
+          inputEntrega.type = 'date';
+          inputEntrega.value = agrupado[fecha][cliente][0].fechaEntrega || '';
+if (agrupado[fecha][cliente][0].entregado) {
+  inputEntrega.classList.add('entregado');
+
+  const nombreCliente = cabecera.querySelector('.cliente-info');
+  if (nombreCliente) {
+    nombreCliente.classList.add('cliente-entregado');
+  }
+}
+          inputEntrega.onchange = () => {
+  const nuevaFecha = inputEntrega.value;
+
+  if (nuevaFecha) {
+inputEntrega.classList.add('entregado');
+const nombreCliente = cabecera.querySelector('.cliente-info');
+if (nombreCliente) nombreCliente.classList.add('cliente-entregado');
+
+inputEntrega.style.backgroundColor = 'red';
+inputEntrega.style.color = 'white';
+    // Se ingresó una fecha de entrega
+    agrupado[fecha][cliente].forEach(v => {
+      v.entregado = true;
+      v.fechaEntrega = nuevaFecha;
+    });
+
+    // Si además están todos pagados, mostrar botón de ocultar
+    const todosPagados = agrupado[fecha][cliente].every(v => v.pagado);
+    if (todosPagados) {
+      const btnOcultar = document.createElement('button');
+      btnOcultar.textContent = '🙈 Ocultar tarjeta';
+      btnOcultar.style.backgroundColor = '#dc3545';
+      btnOcultar.style.color = 'white';
+      btnOcultar.style.border = 'none';
+      btnOcultar.style.padding = '6px 10px';
+      btnOcultar.style.borderRadius = '5px';
+      btnOcultar.style.cursor = 'pointer';
+
+      btnOcultar.onclick = () => {
+        const claveOculta = `control_${cliente}_${fecha}`;
+        if (!estadoClientesControl[claveOculta]) estadoClientesControl[claveOculta] = {};
+        estadoClientesControl[claveOculta].oculto = true;
+        guardarDatos();
+        mostrarVentas();
+      };
+
+      controles.appendChild(btnOcultar);
+    }
+
+  } else {
+inputEntrega.classList.remove('entregado');
+const nombreCliente = cabecera.querySelector('.cliente-info');
+if (nombreCliente) nombreCliente.classList.remove('cliente-entregado');
+
+inputEntrega.style.backgroundColor = '';
+inputEntrega.style.color = '';
+    // Se borró la fecha
+    agrupado[fecha][cliente].forEach(v => {
+      v.entregado = false;
+      delete v.fechaEntrega;
+    });
+
+    // También eliminar del estadoClientes si existía
+    const claveOculta = `control_${cliente}_${fecha}`;
+    if (estadoClientesControl[claveOculta]) {
+      delete estadoClientesControl[claveOculta].oculto;
+    }
+
+    // Ocultar botón ocultar si ya estaba (si necesitas eliminarlo visualmente)
+    const btnOcultarExistente = controles.querySelector('button');
+    if (btnOcultarExistente && btnOcultarExistente.textContent.includes('Ocultar')) {
+      btnOcultarExistente.remove();
+    }
+  }
+
+  guardarDatos();
+  mostrarVentas();
+};
+
+          const btnPagarTarjeta = document.createElement('button');
+          btnPagarTarjeta.textContent = '💰 Pagar tarjeta';
+          btnPagarTarjeta.style.backgroundColor = '#28a745';
+          btnPagarTarjeta.style.color = 'white';
+          btnPagarTarjeta.style.border = 'none';
+          btnPagarTarjeta.style.padding = '6px 10px';
+          btnPagarTarjeta.style.borderRadius = '5px';
+          btnPagarTarjeta.style.cursor = 'pointer';
+          btnPagarTarjeta.onclick = () => {
+            agrupado[fecha][cliente].forEach(v => v.pagado = true);
+            guardarPagoCliente(cliente, totalCliente);
+            guardarDatos();
+            mostrarVentas();
+          };
+
+          const btnRevertirTarjeta = document.createElement('button');
+          btnRevertirTarjeta.textContent = '🗘';
+          btnRevertirTarjeta.title = 'Revertir pago de la tarjeta';
+          btnRevertirTarjeta.style.backgroundColor = '#ffc107';
+          btnRevertirTarjeta.style.color = 'black';
+          btnRevertirTarjeta.style.border = 'none';
+          btnRevertirTarjeta.style.padding = '5px 5px';
+          btnRevertirTarjeta.style.borderRadius = '5px';
+          btnRevertirTarjeta.style.cursor = 'pointer';
+          btnRevertirTarjeta.style.fontSize = '18px';
+          btnRevertirTarjeta.onclick = () => {
+            agrupado[fecha][cliente].forEach(v => v.pagado = false);
+            guardarDatos();
+            mostrarVentas();
+          };
+
+          // Agregar botón OCULTAR si todos entregados y pagados
+          const todosOk = agrupado[fecha][cliente].every(v => v.entregado && v.pagado);
+          if (todosOk) {
+            const btnOcultar = document.createElement('button');
+            btnOcultar.textContent = 'Ocultar tarjeta';
+            btnOcultar.style.backgroundColor = '#dc3545';
+            btnOcultar.style.color = 'white';
+            btnOcultar.style.border = 'none';
+            btnOcultar.style.padding = '6px 10px';
+            btnOcultar.style.borderRadius = '5px';
+            btnOcultar.style.cursor = 'pointer';
+           btnOcultar.onclick = () => {
+  if (!estadoClientesControl[claveOculta]) {
+    estadoClientesControl[claveOculta] = {};
+  }
+  estadoClientesControl[claveOculta].oculto = true;
+  guardarDatos();
+  mostrarVentas();
+};
+
+            controles.appendChild(btnOcultar);
+          }
+
+          controles.appendChild(btnPagarTarjeta);
+          controles.appendChild(btnRevertirTarjeta);
+          controles.appendChild(entregaLabel);
+          controles.appendChild(inputEntrega);
+
+          tarjeta.appendChild(controles);
+
+          if (agrupado[fecha][cliente].every(v => v.pagado)) {
+            tarjeta.classList.add('tarjeta-pagada');
+          }
+
+          tarjetaFecha.appendChild(tarjeta);
+        }
+
+        reporte.appendChild(tarjetaFecha);
+      }
+    }
+
+window.onload = () => {
+  cargarClientesEnFiltro();
+  mostrarVentas();
+};
+  </script>
+</body>
+</html>
