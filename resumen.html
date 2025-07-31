@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Resumen Personalizado</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 0; margin: 0; }
+    nav { background: #333; color: white; padding: 10px; }
+    nav a { color: white; margin-right: 20px; text-decoration: none; font-weight: bold; }
+    .contenido { padding: 20px; }
+    .bloque-rango {
+      display: flex; align-items: center; flex-wrap: wrap;
+      gap: 10px; margin-bottom: 5px;
+    }
+    .resumen-linea { margin-bottom: 20px; font-weight: bold; }
+    .cliente-con-pago {
+.cliente-con-entrega {
+  background-color: #d4edda !important; /* verde claro */
+  border-color: #c3e6cb;
+}
+      background-color: #e3fcef;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="index.html">🏠 Ventas</a>
+    <a href="control.html">📋 Control</a>
+    <a href="envios.html"> 📋 Envios </a>
+    <a href="resumen.html"> 📊 Resumen</a>
+    <a href="gastos.html">📊 Gastos</a>
+    
+  </nav>
+
+  <div class="contenido">
+    <h2>📆 RESUMEN PERSONALIZADO</h2>
+    <div id="contenedor-rangos"></div>
+
+    <div style="display: flex; gap: 20px;">
+  <!-- Columna 1 -->
+  <div style="flex: 1;">
+    <h3>Resumen mensual por cliente (Mes 1)</h3>
+    <input type="month" id="mes-cliente-1" onchange="mostrarResumenMensualClientes(1)">
+    <div id="resumen-cliente-1"></div>
+  </div>
+
+  <!-- Columna 2 -->
+  <div style="flex: 1;">
+    <h3>Resumen mensual por cliente (Mes 2)</h3>
+    <input type="month" id="mes-cliente-2" onchange="mostrarResumenMensualClientes(2)">
+    <div id="resumen-cliente-2"></div>
+  </div>
+</div>
+  <!-- MODAL DE PAGO -->
+  <div id="modal-pago" class="modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; border-radius:10px; max-width:300px; width:100%;">
+      <h3>Registrar Pago</h3>
+      <input id="pago-monto" type="number" placeholder="Monto del pago" style="width:100%; margin-bottom:10px;">
+      <button onclick="guardarPagoDesdeModal()" style="width:100%;">Guardar Pago</button>
+    </div>
+  </div>
+
+  <script>
+    let clientePagoActual = null;
+
+function crearResumen() {
+      const contenedor = document.getElementById("contenedor-rangos");
+      for (let i = 1; i <= 4; i++) {
+        const desdeId = "rango-desde-" + i;
+        const hastaId = "rango-hasta-" + i;
+        const resumenId = "resumen-" + i;
+        contenedor.innerHTML += `
+          <div>
+            <div class="bloque-rango">
+              <label><strong>SEMANA DEL</strong></label>
+              <input type="date" id="${desdeId}" onchange="guardarRangoResumen(${i})">
+              <label><strong>AL</strong></label>
+             <input type="date" id="${hastaId}" onchange="guardarRangoResumen(${i})">
+            </div>
+            <div id="${resumenId}" class="resumen-linea"></div>
+          </div>`;
+      }
+    }
+function calcularResumen(index) {
+  const desde = document.getElementById("rango-desde-" + index).value;
+  const hasta = document.getElementById("rango-hasta-" + index).value;
+  const contenedor = document.getElementById("resumen-" + index);
+  contenedor.innerHTML = "";
+
+  if (!desde || !hasta) return;
+
+  const ventas = JSON.parse(localStorage.getItem("ventas") || "[]");
+
+  let totalVendido = 0;
+  let totalPagado = 0;
+
+  ventas.forEach(v => {
+    const fecha = (v.fecha || "").split("T")[0];
+    if (fecha >= desde && fecha <= hasta) {
+      totalVendido += v.valor;
+      if (v.pagado) {
+        totalPagado += v.valor;
+      }
+    }
+  });
+
+  const totalAdeudado = totalVendido - totalPagado;
+
+  const resumenHTML = `
+    <div><strong>Total Vendido:</strong> $${totalVendido.toLocaleString()}</div>
+    <div style="color: green;"><strong>Total Pagado:</strong> $${totalPagado.toLocaleString()}</div>
+    <div style="color: red;"><strong>Total Adeudado:</strong> $${totalAdeudado.toLocaleString()}</div>
+  `;
+
+  contenedor.innerHTML = resumenHTML;
+}
+
+
+function guardarRangoResumen(index) {
+  const desde = document.getElementById("rango-desde-" + index).value;
+  const hasta = document.getElementById("rango-hasta-" + index).value;
+  const rangos = JSON.parse(localStorage.getItem("rangosResumen") || "{}");
+  rangos[index] = { desde, hasta };
+  localStorage.setItem("rangosResumen", JSON.stringify(rangos));
+  calcularResumen(index); // actualiza el resumen en pantalla
+}
+
+    function abrirModalPago(cliente) {
+      clientePagoActual = cliente;
+      document.getElementById('pago-monto').value = '';
+      document.getElementById('modal-pago').style.display = 'flex';
+    }
+
+    function guardarPagoDesdeModal() {
+      const monto = parseFloat(document.getElementById('pago-monto').value);
+      if (!clientePagoActual || isNaN(monto) || monto <= 0) {
+        alert("Monto inválido");
+        return;
+      }
+      guardarPago(clientePagoActual, monto);
+      document.getElementById('modal-pago').style.display = 'none';
+    }
+
+       function guardarEntrega(cliente, fecha) {
+      const entregas = JSON.parse(localStorage.getItem('entregasPorCliente') || '{}');
+      if (fecha) {
+        entregas[cliente] = fecha;
+      } else {
+        delete entregas[cliente];
+      }
+      localStorage.setItem('entregasPorCliente', JSON.stringify(entregas));
+      mostrarResumenMensualClientes();
+    }
+
+    function cargarSelectorMeses() {
+      const selector = document.getElementById("mes-selector");
+      const hoy = new Date();
+      for (let i = 0; i < 12; i++) {
+        const fecha = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
+        const valor = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, "0")}`;
+        const texto = fecha.toLocaleString('es-CL', { month: 'long', year: 'numeric' }).toUpperCase();
+        const selected = i === 0 ? 'selected' : '';
+        selector.innerHTML += `<option value="${valor}" ${selected}>${texto}</option>`;
+      }
+    }
+
+ function cargarRangosGuardados() {
+         const rangosGuardados = JSON.parse(localStorage.getItem("rangosResumen") || "{}");
+         for (let i = 1; i <= 4; i++) {
+         const desdeInput = document.getElementById("rango-desde-" + i);
+         const hastaInput = document.getElementById("rango-hasta-" + i);
+         const rango = rangosGuardados[i];
+            if (rango) {
+          desdeInput.value = rango.desde || '';
+          hastaInput.value = rango.hasta || '';
+          calcularResumen(i); // recalcula al cargar
+           }
+         }
+        }
+function mostrarResumenMensualClientes(index) {
+  const mesInput = document.getElementById(`mes-cliente-${index}`);
+  const resumenDiv = document.getElementById(`resumen-cliente-${index}`);
+  const mesSeleccionado = mesInput.value; // formato YYYY-MM
+
+  localStorage.setItem(`mesCliente-${index}`, mesSeleccionado); // ← guardar
+
+  const ventas = JSON.parse(localStorage.getItem("ventas") || "[]");
+  const agrupado = {};
+
+  ventas.forEach(v => {
+    const fecha = (v.fecha || "").split("T")[0];
+    if (!fecha.startsWith(mesSeleccionado)) return;
+
+    if (!agrupado[v.cliente]) agrupado[v.cliente] = [];
+    agrupado[v.cliente].push(v);
+  });
+
+  resumenDiv.innerHTML = '';
+
+  for (const cliente in agrupado) {
+    const ventasCliente = agrupado[cliente];
+    let total = 0;
+    let pagado = 0;
+
+    const lista = document.createElement('div');
+    lista.style.marginBottom = '20px';
+    lista.style.border = '1px solid #ccc';
+    lista.style.padding = '10px';
+    lista.style.borderRadius = '8px';
+    lista.style.backgroundColor = '#f9f9f9';
+
+    const titulo = document.createElement('h4');
+    titulo.textContent = cliente;
+    lista.appendChild(titulo);
+
+    // Agrupar por fecha
+const porFecha = {};
+
+ventasCliente.forEach(v => {
+  const fecha = (v.fecha || "").split("T")[0];
+  if (!porFecha[fecha]) porFecha[fecha] = { total: 0, pagado: 0 };
+  porFecha[fecha].total += v.valor;
+  if (v.pagado) porFecha[fecha].pagado += v.valor;
+
+  total += v.valor;
+  if (v.pagado) pagado += v.valor;
+});
+
+// Mostrar resumen por fecha
+for (const fecha in porFecha) {
+  const linea = document.createElement('div');
+  const info = porFecha[fecha];
+  linea.textContent = `${fecha} - Total: $${info.total.toLocaleString()} - Pagado: $${info.pagado.toLocaleString()}`;
+  lista.appendChild(linea);
+}
+
+    const resumen = document.createElement('div');
+    resumen.innerHTML = `
+      <strong>Total: $${total.toLocaleString()}</strong><br>
+      <span style="color: green;">Pagado: $${pagado.toLocaleString()}</span><br>
+      <span style="color: red;">Deuda: $${(total - pagado).toLocaleString()}</span>
+    `;
+    lista.appendChild(resumen);
+
+    resumenDiv.appendChild(lista);
+  }
+}
+window.addEventListener("DOMContentLoaded", () => {
+  crearResumen();
+  cargarRangosGuardados();
+
+  // Cargar mes guardado por cliente (Mes 1 y Mes 2)
+  for (let i = 1; i <= 2; i++) {
+    const mesGuardado = localStorage.getItem(`mesCliente-${i}`);
+    const mesInput = document.getElementById(`mes-cliente-${i}`);
+    if (mesGuardado && mesInput) {
+      mesInput.value = mesGuardado;
+      mostrarResumenMensualClientes(i);
+    }
+  }
+});
+  </script>
+</body>
+</html>

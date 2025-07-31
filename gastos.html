@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Registro de Gastos</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 1000px;
+      margin: auto;
+    }
+
+    h2, h3 {
+      color: #333;
+    }
+
+    .contenedor-flex {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 40px;
+      justify-content: space-between;
+    }
+
+    .formulario, .resumen {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .formulario input, .formulario button {
+      padding: 8px;
+      font-size: 1rem;
+      margin-bottom: 10px;
+      width: 100%;
+    }
+
+    .formulario button {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .tarjeta-gasto {
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      background-color: #f8f9fa;
+    }
+
+    .tarjeta-gasto strong {
+      color: #000;
+    }
+
+    select {
+      width: 100%;
+      padding: 8px;
+      font-size: 1rem;
+      margin-bottom: 10px;
+    }
+
+    .resumen-mensual {
+      background-color: #e9ecef;
+      padding: 15px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+<nav>
+    <a href="resumen.html">📊 Resumen</a>
+      
+  </nav>
+  <h2>Gestión de gastos y utilidad mensual</h2>
+
+  <div class="contenedor-flex">
+    <!-- 🟢 Formulario de gastos -->
+    <div class="formulario">
+      <h3>Ingresar nuevo gasto</h3>
+      <input type="date" id="fecha" />
+      <input type="text" id="descripcion" placeholder="Descripción del gasto" />
+      <input type="number" id="monto" placeholder="Monto ($)" />
+      <button onclick="guardarGasto()">Guardar gasto</button>
+
+      <h3>Gastos registrados</h3>
+      <div id="listaGastos"></div>
+    </div>
+
+    <!-- 🟡 Resumen mensual -->
+    <div class="resumen">
+      <h3>Resumen por mes</h3>
+      <select id="mesSeleccionado" onchange="calcularResumen()"></select>
+      <div id="resumen-mensual" class="resumen-mensual">
+        <p>Selecciona un mes para ver el resultado del ejercicio.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let gastos = JSON.parse(localStorage.getItem("gastos") || "[]");
+    let ventas = JSON.parse(localStorage.getItem("ventas") || "[]");
+
+    function guardarGasto() {
+      const fecha = document.getElementById("fecha").value || new Date().toISOString().split("T")[0];
+      const descripcion = document.getElementById("descripcion").value.trim();
+      const monto = parseFloat(document.getElementById("monto").value);
+
+      if (!descripcion || isNaN(monto)) {
+        alert("Por favor completa todos los campos.");
+        return;
+      }
+
+      gastos.push({ fecha, descripcion, monto });
+      localStorage.setItem("gastos", JSON.stringify(gastos));
+      limpiarFormulario();
+      mostrarGastos();
+      cargarMeses();
+    }
+
+    function limpiarFormulario() {
+      document.getElementById("fecha").value = "";
+      document.getElementById("descripcion").value = "";
+      document.getElementById("monto").value = "";
+    }
+
+    function mostrarGastos() {
+      const contenedor = document.getElementById("listaGastos");
+      contenedor.innerHTML = "";
+
+      const ordenados = [...gastos].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+      ordenados.forEach((gasto, index) => {
+        const div = document.createElement("div");
+        div.className = "tarjeta-gasto";
+        div.innerHTML = `
+          <strong>Fecha:</strong> ${gasto.fecha}<br>
+          <strong>Descripción:</strong> ${gasto.descripcion}<br>
+          <strong>Monto:</strong> $${gasto.monto.toLocaleString()}
+        `;
+
+        const btnEliminar = document.createElement("button");
+        btnEliminar.textContent = "Eliminar";
+        btnEliminar.style.marginTop = "5px";
+        btnEliminar.style.backgroundColor = "#dc3545";
+        btnEliminar.style.color = "white";
+        btnEliminar.style.border = "none";
+        btnEliminar.style.padding = "4px 8px";
+        btnEliminar.style.borderRadius = "4px";
+        btnEliminar.style.cursor = "pointer";
+
+        btnEliminar.onclick = () => {
+          if (confirm("¿Deseas eliminar este gasto?")) {
+            gastos.splice(index, 1);
+            localStorage.setItem("gastos", JSON.stringify(gastos));
+            mostrarGastos();
+            cargarMeses();
+            calcularResumen(); // por si cambia el mes actual
+          }
+        };
+
+        div.appendChild(document.createElement("br"));
+        div.appendChild(btnEliminar);
+        contenedor.appendChild(div);
+      });
+    }
+
+    function cargarMeses() {
+      const select = document.getElementById("mesSeleccionado");
+      const meses = new Set();
+
+      [...ventas, ...gastos].forEach(item => {
+        if (item.fecha && item.fecha.length >= 7) {
+          meses.add(item.fecha.slice(0, 7)); // YYYY-MM
+        }
+      });
+
+      const ordenados = Array.from(meses).sort().reverse();
+
+      select.innerHTML = '<option value="">-- Selecciona un mes --</option>';
+      ordenados.forEach(mes => {
+        const opt = document.createElement("option");
+        opt.value = mes;
+        opt.textContent = mes;
+        select.appendChild(opt);
+// Restaurar la selección previa si existe
+const mesGuardado = localStorage.getItem("mesSeleccionado");
+if (mesGuardado) {
+  select.value = mesGuardado;
+  calcularResumen();
+}
+
+      });
+    }
+
+    function calcularResumen() {
+  const mes = document.getElementById("mesSeleccionado").value;
+  if (!mes) return;
+
+  // ✅ Guardar el mes seleccionado
+  localStorage.setItem("mesSeleccionado", mes);
+
+  const totalVentas = ventas
+    .filter(v => v.fecha && v.fecha.startsWith(mes))
+    .reduce((sum, v) => sum + (v.valor || 0), 0);
+
+  const totalGastos = gastos
+    .filter(g => g.fecha && g.fecha.startsWith(mes))
+    .reduce((sum, g) => sum + (g.monto || 0), 0);
+
+  const utilidad = totalVentas - totalGastos;
+
+  const resumen = document.getElementById("resumen-mensual");
+  resumen.innerHTML = `
+    <p><strong>Mes:</strong> ${mes}</p>
+    <p><strong>Total vendido:</strong> $${totalVentas.toLocaleString()}</p>
+    <p><strong>Total de gastos:</strong> $${totalGastos.toLocaleString()}</p>
+    <p><strong>Resultado del ejercicio:</strong> $${utilidad.toLocaleString()}</p>
+  `;
+}
+
+
+    mostrarGastos();
+    cargarMeses();
+  </script>
+
+</body>
+</html>
